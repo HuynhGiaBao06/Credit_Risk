@@ -1,0 +1,40 @@
+# ==========================================
+# FILE: requirements.txt
+# PROJECT: Predictive Customer Churn
+# ==========================================
+
+# --- 1. THƯ VIỆN CHÍNH (MAIN DEPENDENCIES) ---
+# Xử lý và tính toán dữ liệu
+pandas>=2.0.0
+numpy>=1.23.5
+
+# Trực quan hóa dữ liệu
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Học máy và Mô hình hóa
+scikit-learn>=1.2.0
+xgboost>=2.0.0
+imbalanced-learn>=0.10.0
+
+# Môi trường Jupyter & Tích hợp IDE
+jupyter>=1.0.0
+ipykernel>=6.0.0
+
+# Xử lý SQL trên Python
+SQLAlchemy>=2.0.0
+pandasql>=0.7.3
+psycopg2-binary>=2.9.9   # BẮT BUỘC: Driver để kết nối Python với PostgreSQL
+python-dotenv>=1.0.0     # RẤT KHUYÊN DÙNG: Để bảo mật chuỗi kết nối, không lộ pass lên Github
+
+# Triển khai Dashboard Web App
+streamlit>=1.28.0
+
+# ==========================================
+# --- 2. THƯ VIỆN TÙY CHỌN (OPTIONAL) ---
+# ⚠️ LƯU Ý: Thư viện rpy2 (chạy R trên Python) rất dễ gây lỗi build C++ trên Windows.
+# Chỉ thành viên nào phụ trách phần ngôn ngữ R, và ĐÃ CÀI ĐẶT R Base trên máy,
+# thì mới xóa dấu # ở dòng bên dưới để cài đặt thủ công.
+#
+# rpy2>=3.5.0
+# ==========================================
