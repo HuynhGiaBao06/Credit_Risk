@@ -2,9 +2,19 @@ import os
 import time
 import pandas as pd
 from pathlib import Path
-from sqlalchemy import create_engine,text
-from sqlalchemy.exc import SQLAlchemyError,OperationalError
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from dotenv import load_dotenv
+import sys
+# ==========================================
+#THÊM PROJECT ROOT VÀO SYS.PATH
+# ==========================================
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(PROJECT_ROOT))
+
+# Import hàm cấu hình logger từ dự án của bạn
+from src.utils.logger import get_pipeline_logger
+
 class NeonDBManager:
     """
     Class quản lý kết nối 2 chiều giữa Python và Neon PostgreSQL.
@@ -12,6 +22,10 @@ class NeonDBManager:
     """
 
     def __init__(self):
+        # Khởi tạo logger ngay khi gọi class
+        self.log = get_pipeline_logger(self.__class__.__name__)
+        self.log.debug("Initializing NeonDBManager...")
+
         # =================================================================
         # 1. SỬ DỤNG PATHLIB ĐỂ TÌM ĐƯỜNG DẪN TUYỆT ĐỐI CỦA FILE .ENV
         # =================================================================
@@ -37,6 +51,8 @@ class NeonDBManager:
 
         self.db_url = os.getenv("DATABASE_URL")
         if not self.db_url:
+            # Log mức CRITICAL trước khi quăng lỗi làm sập chương trình
+            self.log.critical("CRITICAL: DATABASE_URL environment variable not found!")
             raise ValueError(f"🚨 NGHIÊM TRỌNG: Không tìm thấy biến DATABASE_URL!\n")
         
         try:
@@ -47,7 +63,9 @@ class NeonDBManager:
                 # THÊM connect_timeout để cho phép Neon có thêm thời gian thức dậy
                 connect_args={'sslmode': 'require', 'connect_timeout': 10} 
             )
+            self.log.debug("SQLAlchemy engine created successfully.")
         except Exception as e:
+            self.log.critical(f"ENGINE INITIALIZATION ERROR: {e}", exc_info=True)
             raise ConnectionError(f"🚨 LỖI KHỞI TẠO ENGINE: {e}")
 
     def test_connection(self, max_retries=3, delay=3):
@@ -59,42 +77,42 @@ class NeonDBManager:
             try:
                 with self.engine.connect() as connection:
                     connection.execute(text("SELECT 1"))
-                print("✅ Kết nối PostgreSQL thành công và đang hoạt động!")
+                self.log.info("PostgreSQL connection successful and active!")
                 return True
             except OperationalError as e:
-                print(f"⚠️ Lần thử {attempt + 1}/{max_retries} thất bại. Có thể do Neon Serverless đang Cold Start.")
+                self.log.warning(f"Attempt {attempt + 1}/{max_retries} failed. Possible Neon Serverless Cold Start.")
                 if attempt < max_retries - 1:
-                    print(f"⏳ Đang chờ {delay} giây để thử lại...")
+                    self.log.info(f"Waiting {delay} seconds before retrying...")
                     time.sleep(delay)  # Dừng lại 3 giây chờ database thức dậy
                 else:
-                    print(f"❌ LỖI KẾT NỐI: Đã thử {max_retries} lần nhưng không thành công.\nChi tiết: {e}")
+                    self.log.error(f"CONNECTION ERROR: Failed after {max_retries} attempts. Details: {e}", exc_info=True)
                     return False
             except Exception as e:
-                print(f"❌ LỖI KHÔNG XÁC ĐỊNH: {e}")
+                self.log.error(f"UNKNOWN ERROR: {e}", exc_info=True)
                 return False
         
-    def fetch_data(self,query:str) -> pd.DataFrame:
+    def fetch_data(self, query: str) -> pd.DataFrame:
         """Kéo dữ liệu từ SQL về Pandas DataFrame"""
         try:
-            print("⏳ Đang tải dữ liệu...")
+            self.log.info("Loading data from database...")
             df = pd.read_sql(query, con=self.engine)
-            print(f"✅ Tải thành công {len(df)} dòng dữ liệu.")
+            self.log.info(f"Successfully loaded {len(df)} rows of data.")
             return df
         except SQLAlchemyError as e:
-            print(f"❌ LỖI TRUY VẤN SQL:\nChi tiết: {e}")
+            self.log.error(f"SQL QUERY ERROR. Details: {e}", exc_info=True)
             return pd.DataFrame() 
         except Exception as e:
-            print(f"❌ LỖI ĐỌC DỮ LIỆU: {e}")
+            self.log.error(f"DATA READING ERROR: {e}", exc_info=True)
             return pd.DataFrame()
         
     def push_data(self, df: pd.DataFrame, table_name: str, if_exists: str = 'append'):
         """Đẩy dữ liệu từ Pandas lên SQL"""
         if df.empty:
-            print("⚠️ CẢNH BÁO: DataFrame rỗng, không có dữ liệu để ghi lên SQL.")
+            self.log.warning("WARNING: DataFrame is empty, no data to push to SQL.")
             return False
 
         try:
-            print(f"⏳ Đang đẩy {len(df)} dòng lên bảng '{table_name}'...")
+            self.log.info(f"Pushing {len(df)} rows to table '{table_name}'...")
             df.to_sql(
                 name=table_name,
                 con=self.engine,
@@ -102,11 +120,11 @@ class NeonDBManager:
                 index=False,
                 chunksize=1000 
             )
-            print(f"✅ Ghi dữ liệu thành công lên bảng '{table_name}'.")
+            self.log.info(f"Successfully pushed data to table '{table_name}'.")
             return True
         except ValueError as e:
-            print(f"❌ LỖI CẤU TRÚC: Cấu trúc DataFrame không khớp với bảng.\nChi tiết: {e}")
+            self.log.error(f"STRUCTURE ERROR: DataFrame structure does not match the table '{table_name}'. Details: {e}", exc_info=True)
             return False
         except SQLAlchemyError as e:
-            print(f"❌ LỖI THỰC THI DB:\nChi tiết: {e}")
+            self.log.error(f"DB EXECUTION ERROR. Details: {e}", exc_info=True)
             return False

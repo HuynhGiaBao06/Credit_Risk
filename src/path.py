@@ -31,11 +31,13 @@ DATA_DIR = PROJECT_ROOT/ "data"
 # Đường dấn data checkpoint
 CHECKPOINT_DATA_DIR = DATA_DIR / "checkpoint_data" 
 TRAIN_DATA_FILE = CHECKPOINT_DATA_DIR / "train_df.csv"
-TEST_DATA_FILE = CHECKPOINT_DATA_DIR/ "test.csv"
+TEST_DATA_FILE = CHECKPOINT_DATA_DIR/ "test_df.csv"
 # Đường dẫn data_raw (chỉ Bảo dùng)
 DATA_RAW = DATA_DIR / "data_raw"
 DATA_RAW_FILE = DATA_RAW / "data_raw.csv"
-
+# Đường dẫn logger
+LOGGER_DATA_DIR = DATA_DIR / "logger_data"
+LOGGER_DATA_FILE = LOGGER_DATA_DIR/ "logger_data.txt"
 # ==========================================
 # 3. ĐƯỜNG DẪN ĐẦU RA (OUTPUT PATHS)
 # ==========================================

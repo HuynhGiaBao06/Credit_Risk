@@ -2,11 +2,11 @@ import pandas as pd
 from pathlib import Path
 import sys
 # ==========================================
-#THÊM PROJECT ROOT VÀO SYS.PATH
+# THÊM PROJECT ROOT VÀO SYS.PATH
 # ==========================================
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT))
-
+from src.utils.logger import get_pipeline_logger
 from src.db_config import NeonDBManager
 from src.path import DATA_RAW_FILE, check_and_create_directories
 
@@ -18,7 +18,9 @@ class DataUploader:
 
     def __init__(self):
         self.db = NeonDBManager()
-
+        self.log = get_pipeline_logger(self.__class__.__name__)
+        self.log.debug("Created class NeonDBManager")
+        
     # Đã bỏ tham số filename vì chúng ta dùng trực tiếp DATA_RAW_FILE
     def upload_raw_data(self, table_name: str, if_exists: str = "replace"):
         """
@@ -33,11 +35,12 @@ class DataUploader:
         file_path = DATA_RAW_FILE
 
         if not file_path.exists():
-            print(f"❌ LỖI: Không tìm thấy file dữ liệu tại {file_path}")
-            print("💡 Gợi ý: Hãy kiểm tra xem file đã được copy vào thư mục 'data/' chưa.")
+            # Sử dụng ERROR vì file không tồn tại làm gián đoạn toàn bộ quá trình
+            self.log.error(f"Data file not found at path: {file_path}")
+            self.log.info("Hint: Please verify if the file has been copied to the 'data/' directory.")
             return False
         
-        print(f"⏳ Đang đọc file dữ liệu từ: {file_path}...")
+        self.log.info(f"Reading data file from: {file_path}...")
 
         try:
             # Hỗ trợ đọc cả định dạng CSV và Excel
@@ -48,24 +51,25 @@ class DataUploader:
                 df = pd.read_excel(file_path) 
 
             else:
-                print("❌ LỖI: Định dạng file không được hỗ trợ. Chỉ dùng .csv hoặc .xlsx")
+                self.log.error("Unsupported file format. Please use .csv or .xlsx only.")
                 return False
             
-            print(f"✅ Đã tải {len(df)} dòng dữ liệu vào bộ nhớ Pandas.")
+            self.log.info(f"Successfully loaded {len(df)} rows of data into Pandas DataFrame.")
 
         except Exception as e:
-            print(f"❌ LỖI ĐỌC FILE: Quá trình đọc bộ nhớ cục bộ thất bại.\nChi tiết: {e}")
+            # exc_info=True giúp log lưu lại toàn bộ traceback của lỗi, cực kỳ hữu ích khi debug
+            self.log.error(f"File reading failed. Local memory load error. Details: {e}", exc_info=True)
             return False
         
         # Đẩy dữ liệu lên cơ sở dữ liệu
-        print(f"🚀 Bắt đầu đẩy dữ liệu lên bảng '{table_name}' trên DB...")
+        self.log.info(f"Starting to push data to DB table '{table_name}'...")
 
         success = self.db.push_data(df=df, table_name=table_name, if_exists=if_exists)
 
         if success:
-            print(f"🎉 HOÀN TẤT: Dữ liệu đã an tọa trên DB. Bảng: '{table_name}'.")
+            self.log.info(f"SUCCESS: Data successfully uploaded to DB. Target table: '{table_name}'.")
         else:
-            print("⚠️ THẤT BẠI: Không thể đẩy dữ liệu lên DB. Vui lòng xem log ở trên.")
+            self.log.error("FAILED: Could not push data to DB. Please review the logs above for details.")
 
         return success
     
