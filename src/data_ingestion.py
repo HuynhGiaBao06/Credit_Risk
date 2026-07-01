@@ -80,5 +80,5 @@ class DataIngestion:
 # === Cách sử dụng ===
 if __name__ == "__main__":
     ingestor = DataIngestion()
-    # Giả sử View bạn tạo trên SQL tên là 'vw_credit_risk'
-    ingestor.process_and_checkpoint(view_name="vw_credit_risk")
+    # Giả sử View bạn tạo trên SQL tên là 'vw_cleaning_data'
+    ingestor.process_and_checkpoint(view_name="vw_cleaning_data")
