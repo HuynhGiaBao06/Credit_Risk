@@ -1,13 +1,21 @@
-CREATE OR REPLACE VIEW vw_cleaning_data AS
+-- 1. Xóa View cũ để tránh lỗi xung đột cấu trúc cột
+DROP VIEW IF EXISTS vw_cleaning_data;
+
+-- 2. Tạo lại View mới
+CREATE VIEW vw_cleaning_data AS
 WITH MedianByGrade AS (
     SELECT
         loan_grade,
-        -- Đã xóa loan_percent_income ở đây để tránh lỗi GROUP BY và thiếu dấu phẩy
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY loan_int_rate) AS median_rate
     FROM db_credit_risk
-    WHERE loan_int_rate IS NOT NULL 
-      AND loan_percent_income IS NOT NULL
+    WHERE loan_int_rate IS NOT NULL
     GROUP BY loan_grade
+),
+MedianPercentIncome AS (
+    SELECT
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY loan_percent_income) AS median_pct_income
+    FROM db_credit_risk
+    WHERE loan_percent_income IS NOT NULL
 ),
 MedianEmpByAge AS (
     SELECT
@@ -18,30 +26,23 @@ MedianEmpByAge AS (
     GROUP BY person_age
 ),
 CleanData AS (
+    -- Khối này CHỈ tính toán Imputation cho các biến bị khuyết
     SELECT
         d.id,
-        d.person_age,
-        d.person_income, 
-        -- Nếu emp_length là NULL hoặc 0, thay bằng thâm niên trung vị của độ tuổi đó. 
-        -- Nếu độ tuổi đó cũng không có trung vị, thì dự phòng gán bằng 0.5
         COALESCE(
             NULLIF(d.person_emp_length, 0), 
             ea.median_emp, 
             0.5
         ) AS person_emp_length,
         
-        d.loan_amnt,
         COALESCE(d.loan_int_rate, m.median_rate) AS loan_int_rate,
-        d.loan_status,
-        d.loan_grade,
-        d.cb_person_cred_hist_length,
-        d.loan_percent_income,
+        COALESCE(d.loan_percent_income, mpi.median_pct_income) AS loan_percent_income,
+        
         ROW_NUMBER() OVER (PARTITION BY d.id ORDER BY d.id) AS rn
     FROM db_credit_risk d
-    LEFT JOIN MedianByGrade m
-        ON d.loan_grade = m.loan_grade
-    LEFT JOIN MedianEmpByAge ea
-        ON d.person_age = ea.person_age
+    LEFT JOIN MedianByGrade m ON d.loan_grade = m.loan_grade
+    LEFT JOIN MedianEmpByAge ea ON d.person_age = ea.person_age
+    CROSS JOIN MedianPercentIncome mpi
     WHERE d.person_age <= 100
       AND (
           d.person_emp_length IS NULL 
@@ -50,20 +51,23 @@ CleanData AS (
       AND d.loan_amnt > 0
       AND d.person_income >= 0
 )
--- Truy vấn chính của View (lọc rn = 1 để xóa trùng lặp và không hiển thị cột rn)
+-- Truy vấn chính: SELECT trực tiếp từ db_credit_risk kết hợp các cột đã làm sạch từ CleanData
 SELECT 
-    id,
-    person_age,
-    person_income,
-    person_emp_length,
-    loan_amnt,
-    loan_int_rate,
-    loan_status,
-    loan_grade,
-    cb_person_cred_hist_length,
-    loan_percent_income
-FROM CleanData
-WHERE rn = 1;
+    d.loan_status, 
+    d.person_age, 
+    d.person_income, 
+    d.person_home_ownership, 
+    c.person_emp_length, 
+    d.cb_person_default_on_file, 
+    d.cb_person_cred_hist_length, 
+    d.loan_intent, 
+    d.loan_grade, 
+    d.loan_amnt, 
+    c.loan_int_rate, 
+    c.loan_percent_income
+FROM db_credit_risk d
+JOIN CleanData c ON d.id = c.id
+WHERE c.rn = 1;
 
 SELECT
     COUNT(*) FILTER (WHERE person_age IS NULL) AS person_age_null,
