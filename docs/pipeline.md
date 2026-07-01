@@ -34,12 +34,12 @@
 * **Feature Creation (Tạo đặc trưng mới):**
   * `age_at_first_credit` = `person_age` - `cb_person_cred_hist_length` . Ngay sau khi tính toán xong biến `age_at_first_credit`, **bắt buộc phải loại bỏ (drop)** cột gốc `cb_person_cred_hist_length` ra khỏi tập dữ liệu ở cả hai nhánh Train và Test. Việc này đảm bảo biến mới hoàn toàn thay thế biến cũ, triệt tiêu đa cộng tuyến hoàn hảo, giúp trọng số của mô hình Ridge Classifier không bị sai lệch.
   * `Estimated_Annual_Interest` = `loan_amnt` * (`loan_int_rate` / 100) .
-  * `Income_per_Employment_Year` = `person_income` / (`person_emp_length` + epsilon) [Tham số mặd định: EPSILON = 1e-6].
+  * `Income_per_Employment_Year` = `person_income` / (`person_emp_length`).
 
 ---
 
 ## BƯỚC 4: RẼ NHÁNH XỬ LÝ CHO CÁC MÔ HÌNH (MODEL BRANCHES)
-*Pipeline tách làm 2 nhánh để tối ưu hóa theo đặc thù đề kháng nhiễu và thang đo của thuật toán [11].*
+*Pipeline tách làm 2 nhánh để tối ưu hóa theo đặc thù đề kháng nhiễu và thang đo của thuật toán .*
 
 ### Nhánh A: Dành cho Baseline Model (Ridge Classifier)
 *Bản chất: Mô hình tuyến tính có L2 Regularization, cực kỳ nhạy cảm với thang đo và ngoại lai.*
@@ -58,7 +58,7 @@
 
 * **Tối ưu hóa Threshold bằng F2-Score:** Thay vì dùng F1-Score cân bằng, F2-Score đặt trọng số của Recall cao gấp 2 lần Precision . Điều này hoàn toàn phù hợp với triết lý: *"Thà từ chối nhầm khách tốt, còn hơn cho vay nhầm khách xấu"* .
 * **Khung Metrics Đánh Giá Chéo:**
-  * **Recall (Nhóm 1 - Nợ xấu):** Chỉ số sinh tử ưu tiên hàng đầu, cần tối đa hóa để không lọt lưới nợ xấu gây tổn thất vốn trực tiếp [17, 19].
+  * **Recall (Nhóm 1 - Nợ xấu):** Chỉ số sinh tử ưu tiên hàng đầu, cần tối đa hóa để không lọt lưới nợ xấu gây tổn thất vốn trực tiếp .
   * **Precision (Nhóm 1 - Nợ xấu):** Cần duy trì ở mức hợp lý để không từ chối "oan" quá nhiều khách tốt, làm mất cơ hội doanh thu .
   * **Hệ số Gini:** Tiêu chuẩn ngành chấm điểm tín dụng. Mục tiêu Gini > 0.4 (tương đương ROC-AUC > 0.7) để đảm bảo mô hình phân tách tốt rủi ro .
   * **PR-AUC (Precision-Recall AUC):** Thước đo gắt gao nhất, tập trung hoàn toàn vào lớp thiểu số, phản ánh hiệu suất thực tế tốt hơn ROC-AUC khi tỷ lệ nợ xấu cực kỳ thấp .
